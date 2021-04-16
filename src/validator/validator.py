@@ -6,13 +6,13 @@ class Validator:
         self.model = model(*args, **kwargs)
 
     def __train_test_split(self, data):
-        self.data_train, self.data_test = train_test_split(data)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(*data)
 
     def __fit(self):
-        self.model.fit(self.data_train)
+        self.model.fit(X_train, y_train)
 
     def __predict(self):
-        self.y_pred, self.y_test = self.model.predict(self.data_test)
+        self.y_pred = self.model.predict(self.X_test, y_test)
 
     def __get_metrics(self):
         self.result = "some metrics"

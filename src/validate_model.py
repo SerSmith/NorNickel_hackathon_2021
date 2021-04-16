@@ -15,7 +15,7 @@ def main():
     ogrv = pd.read_csv('data/OGRV.csv', sep = ';')
     data = generate_features(sot, rod, ogrv) 
     validator = Validator(ModelSick(), agrs, kwargs)
-    validator.run(data)
+    validator.run(*data)
     print(validator.result)
 
 if __name__ == '__main__':
