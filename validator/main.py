@@ -3,9 +3,10 @@ from validator import Validator
 
 
 def main():
-    validator = Validator(TestModel(), **{"data": "test"})
+    validator = Validator(TestModel(), **{"X": None, "y": None})
+    validator.train_test_split()
     validator.fit()
-    print(validator.predict())
+    validator.predict()
 
 
 if __name__ == '__main__':
