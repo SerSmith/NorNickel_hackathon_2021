@@ -27,13 +27,12 @@ class ModelSick:
             f1_scores = f1_scores[p > 0]
             self.trasholds[i] = threshold[np.argmax(f1_scores)]
 
-    def predict(self, data_predict, known_target=False):
+    def predict(self, data_predict):
         predictions = pd.DataFrame()
         predictions['hash_tab_num'] = data_predict['hash_tab_num']
         for i in range(1,13):
             y_col_name = 'y_' + str(i)
-            if known_target:
-                X_data_predict = data_predict\
+            X_data_predict = data_predict\
                     .drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                         'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12',
                         'date', 'hash_tab_num'], axis = 1)
