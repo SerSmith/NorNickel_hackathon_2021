@@ -8,6 +8,7 @@ from features.features import generate_features
 
 warnings.filterwarnings('ignore')
 
+
 def main():
     sot = pd.read_csv('data/sotrudniki.csv', sep = ';')
     rod = pd.read_csv('data/rodstvenniki.csv', sep = ';')

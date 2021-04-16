@@ -5,10 +5,10 @@ class Validator:
     def __init__(self, args, kwargs):
         self.model = model(*args, **kwargs)
 
-    def __train_test_split(self):
+    def __train_test_split(self, data):
         self.data_train, self.data_test = train_test_split(data)
 
-    def __fit(self, data):
+    def __fit(self):
         self.model.fit(self.data_train)
 
     def __predict(self):
