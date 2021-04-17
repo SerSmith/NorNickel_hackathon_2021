@@ -12,7 +12,7 @@ def add_last_day(ogrv):
         .query("graphic_rule_level_2 == 'Б'") \
         .sort_values(by=['hash_tab_num', 'date']) 
     ogrv_b['date'] = pd.to_datetime(ogrv_b['date'])
-    ogrv_b['is_last_day'] = ogrv_b.date.apply(lambda x: is_lasday(x))
+    ogrv_b['is_last_day'] = ogrv_b.date.apply(is_last_day)
     ogrv_b['date'] = ogrv_b.date.apply(lambda x: x.replace(day=1))
     ogrv_b = ogrv_b \
         .groupby(['hash_tab_num', 'date']) \
@@ -25,8 +25,9 @@ def add_last_day(ogrv):
     return ogrv_b
 
 
-def add_rolling_mean(data, column, period):
+def add_rolling_features(data, column, period):
     data[f"{column}_rolling_mean_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "mean"}).reset_index(drop=True)
+    data[f"{column}_rolling_std_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "std"}).reset_index(drop=True)
     return data
 
 
@@ -45,15 +46,20 @@ def add_cummean(data, column):
     data["cumcount"] = data["cumcount"] + 1
     data[f"{column}_cummean"] = data['cumsum'] / data["cumcount"]
 
-    data = add_rolling_mean(data, column, 2)
-    data = add_rolling_mean(data, column, 3)
-    data = add_rolling_mean(data, column, 6)
-    data = add_rolling_mean(data, column, 9)
-    data = add_rolling_mean(data, column, 12)
-    data = add_rolling_mean(data, column, 24)
+    data = add_rolling_features(data, column, 2)
+    data = add_rolling_features(data, column, 3)
+    data = add_rolling_features(data, column, 6)
+    data = add_rolling_features(data, column, 9)
+    data = add_rolling_features(data, column, 12)
+    data = add_rolling_features(data, column, 24)
 
     data[f"trend_{column}_2_24"] = data[f"{column}_rolling_mean_2"] / data[f"{column}_rolling_mean_24"]
     data[f"trend_{column}_2_12"] = data[f"{column}_rolling_mean_2"] / data[f"{column}_rolling_mean_12"]
+    data[f"trend_{column}_2_6"] = data[f"{column}_rolling_mean_2"] / data[f"{column}_rolling_mean_6"]
+
+    data[f"trend_std_{column}_2_24"] = data[f"{column}_rolling_std_2"] / data[f"{column}_rolling_std_24"]
+    data[f"trend_std_{column}_2_12"] = data[f"{column}_rolling_std_2"] / data[f"{column}_rolling_std_12"]
+    data[f"trend_std_{column}_2_6"] = data[f"{column}_rolling_std_2"] / data[f"{column}_rolling_std_6"]
 
     return data.drop(columns=['cumsum', "cumcount"])
 
