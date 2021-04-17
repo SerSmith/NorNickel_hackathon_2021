@@ -1,36 +1,45 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+import lightgbm as lgb
 from sklearn.metrics import precision_recall_curve
 
 class ModelSick:
-    def __init__(self, seed=42):
+    def __init__(self, params, nrounds, seed=42 ):
         self.seed = seed
         self.models = {}
         self.trasholds = {}
+        self.params = params
+        self.nrounds = nrounds
 
     def fit(self, data, target):
-        X = data.drop(['date', 'hash_tab_num'], axis = 1)
-        X.fillna(0, inplace=True)
+        max_date = max(data.date)
+        X_train = data[data.date < max_date]
+        X_test = data[data.date == max_date]
+        y_train = target[target.date < max_date]
+        y_test = target[target.date == max_date]
+        X_train = X_train.drop(['date', 'hash_tab_num'], axis = 1)
+        X_test = X_test.drop(['date', 'hash_tab_num'], axis = 1)
         for i in range(1,13):
             y_col_name = 'y_' + str(i) 
-            y = target[y_col_name]
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42, shuffle=True, stratify=y)
-            self.models[i] = RandomForestClassifier()
-            self.models[i].fit(X_train, y_train)
-            p, r, threshold = precision_recall_curve(y_test, self.models[i].predict_proba(X_test)[:,1])
+            y_train_i = y_train[y_col_name]
+            model = lgb.train(self.params[i]
+                    , lgb.Dataset(X_train, label=y_train_i)
+                    , num_boost_round=self.nrounds[i]
+                    , verbose_eval=False)
+            self.models[i] = model
+            p, r, threshold = precision_recall_curve(y_test[y_col_name], self.models[i].predict(X_test))
             f1_scores = 2 * r * p / (r+p)
             f1_scores = f1_scores[p > 0]
             self.trasholds[i] = threshold[np.argmax(f1_scores)]
+            print(f'f1_score_max = {np.max(f1_scores)}')
 
     def predict(self, data):
         predictions = pd.DataFrame()
         predictions[['hash_tab_num','date']] = data[['hash_tab_num','date']]
         X_data_predict = data.drop(['date', 'hash_tab_num'], axis = 1)
-        X_data_predict.fillna(0, inplace=True)
         for i in range(1,13):
             y_col_name = 'y_' + str(i)
-            predictions[y_col_name] = (self.models[i].predict_proba(X_data_predict)[:,1] >= self.trasholds[i]).astype(int)
+            predictions[y_col_name] = (self.models[i].predict(X_data_predict) >= self.trasholds[i]).astype(int)
+            #predictions[y_col_name] = self.models[i].predict(X_data_predict)
 
         return predictions
