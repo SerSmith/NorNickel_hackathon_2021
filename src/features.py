@@ -67,8 +67,11 @@ def generate_features(sot, rod, ogrv, weather):
                     how='left'
                 )[['hash_tab_num', 'date','name_fact_lvl4_people_count','name_fact_lvl4_sick_count','name_fact_lvl4_sick_avg']]
 
+    # Возраст
+    sot['age'] = ([int(x[0:4]) for x in sot['date']] - sot['date_of_birth'])
+
     # Базовый датафремй
-    sot_data = sot[['hash_tab_num','date','category','gender','razryad_fact','work_experience_company',
+    sot_data = sot[['hash_tab_num','date','category', 'age', 'is_local','gender','razryad_fact', 'razryad_post', 'work_experience_company',
                     'name_fact_lvl5','education','home_to_work_distance']]
     sot_data.gender = sot_data['gender'].map(lambda x: 1 if x == 'мужской' else 0)
 
@@ -107,7 +110,7 @@ def generate_features(sot, rod, ogrv, weather):
     sot_data.education = sot_data['education']\
     .map(lambda x: 'Высшее' if x in ['Высшее образование','Высшее-бакалавриат','Высшее-специалитет'] else(\
     'Среднее_профессинальное' if x in ['Ср.профессиональное','Нач.профессиональное'] else 'Начальное_среднее'))
-    sot_data = pd.get_dummies(sot_data, columns = ['category','education','razryad_fact'])\
+    sot_data = pd.get_dummies(sot_data, columns = ['category','education','razryad_fact','razryad_post'])\
     .drop('name_fact_lvl5', axis = 1)
 
     # Создание единого датасета для будущего использования в модели
@@ -139,7 +142,7 @@ def generate_features(sot, rod, ogrv, weather):
 
     # Добавим информацию о погоде
     merged_data["month"] = merged_data["date"].dt.month
-    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц").drop(columns=["month", "Месяц"])
+    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц").drop(columns=["Месяц"])
     merged_data.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in merged_data.columns]
 
     # Присоединение данных о больничных к будущим периодам созданным на предыдущем шаге
