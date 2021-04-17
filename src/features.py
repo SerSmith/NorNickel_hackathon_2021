@@ -42,6 +42,38 @@ def generate_features(sot, rod, ogrv, weather):
         cnt_category_days.columns = ['hash_tab_num', 'date', 'cnt_days_'+column]
         result_cnt_category_days = pd.merge(result_cnt_category_days, cnt_category_days, how = 'left', on = ['hash_tab_num','date'])
 
+    #    name_post_lvl4_people_count - количество людей в отделе
+    #    name_post_lvl4_sick_count - количесвто заболевших людей в отеделе
+    #    name_post_lvl4_sick_avg - доля заболевших людей в отеделе
+    df_name_post_lvl4_agg =\
+            sot \
+                .merge(
+                    sot \
+                        .groupby(['date', 'name_post_lvl4']) \
+                        .agg(
+                            name_post_lvl4_people_count=("hash_tab_num", "count"),
+                            name_post_lvl4_sick_count=("sick", "sum"),
+                            name_post_lvl4_sick_avg=("sick", "mean")
+                        ) \
+                        .reset_index(),
+                    on=['date', 'name_post_lvl4'],
+                    how='left'
+                )[['hash_tab_num', 'date','name_post_lvl4_people_count','name_post_lvl4_sick_count','name_post_lvl4_sick_avg']]
+
+    df_name_fact_lvl4_agg =\
+            sot \
+                .merge(
+                    sot \
+                        .groupby(['date', 'name_fact_lvl4']) \
+                        .agg(
+                            name_fact_lvl4_people_count=("hash_tab_num", "count"),
+                            name_fact_lvl4_sick_count=("sick", "sum"),
+                            name_fact_lvl4_sick_avg=("sick", "mean")
+                        ) \
+                        .reset_index(),
+                    on=['date', 'name_fact_lvl4'],
+                    how='left'
+                )[['hash_tab_num', 'date','name_fact_lvl4_people_count','name_fact_lvl4_sick_count','name_fact_lvl4_sick_avg']]
 
     # Базовый датафремй
     sot_data = sot[['hash_tab_num','date','category','gender','razryad_fact','work_experience_company',
@@ -96,7 +128,11 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data = pd.merge(merged_data, sum_work_hours, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, kolvo_bolni4, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, result_cnt_category_days, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, df_name_post_lvl4_agg, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, df_name_fact_lvl4_agg, how = 'left', on = ['hash_tab_num','date'])
     merged_data = merged_data.drop_duplicates()
+
+
 
     # Создание 12ти столбцов с датами будущих периодов для формирования таргетов
     merged_data['sick'] = merged_data['sick'].fillna(0)
@@ -107,6 +143,13 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data = pd.merge(merged_data,new_target_dates, left_index=True, right_index=True)
     merged_data.drop(['target_dates'],axis = 1, inplace = True)
     merged_data['date'] = pd.to_datetime(merged_data['date'])
+
+
+    # Добавим информацию о погоде
+    merged_data["month"] = merged_data["date"].dt.month
+    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц").drop(columns=["month", "Месяц"])
+    merged_data.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in merged_data.columns]
+
     # Присоединение данных о больничных к будущим периодам созданным на предыдущем шаге
     for i in range(1,13):
         dt_col_name = 'y_dt_'+str(i)
@@ -115,15 +158,16 @@ def generate_features(sot, rod, ogrv, weather):
         targets_tmp.columns = [dt_col_name, 'hash_tab_num', y_col_name]
         merged_data = pd.merge(merged_data, targets_tmp, how = 'left', on = [dt_col_name, 'hash_tab_num'])
         merged_data.drop(dt_col_name, axis = 1, inplace = True)
+
+
+    
     y = merged_data[['date', 'hash_tab_num', 'y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                 'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12']]
     y_col_names= ['y_' + str(i)  for i in range(1,13)]
     X = merged_data.drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                 'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12'], axis = 1)
     
-    X["month"] = X["date"].dt.month
-    X = X.merge(weather, left_on='month', right_on="Месяц").drop(columns=["month", "Месяц"])
-    X.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in X.columns]
+
 
 
     return X, y
