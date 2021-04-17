@@ -1,7 +1,7 @@
 import pandas as pd
 from transliterate import translit
 
-def generate_features(sot, rod, ogrv):
+def generate_features(sot, rod, ogrv, weather):
 
     # Создание вспомогательного датафрейма с информацией о количестве смен сотрудника в месяце
     ogrv['month'] = ogrv['date'].map(lambda x: x[0:8] + str('01'))
@@ -112,4 +112,9 @@ def generate_features(sot, rod, ogrv):
     y_col_names= ['y_' + str(i)  for i in range(1,13)]
     X = merged_data.drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                 'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12'], axis = 1)
+    
+    X["month"] = X["date"].dt.month
+    X = X.merge(weather, left_on='month', right_on="Месяц").drop(columns=["month", "Месяц"])
+    X.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in X.columns]
+
     return X, y
