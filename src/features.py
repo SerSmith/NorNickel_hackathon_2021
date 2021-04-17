@@ -104,8 +104,10 @@ def generate_features(sot, rod, ogrv, weather):
 
     # Базовый датафремй
     sot_data = sot[['hash_tab_num','date','category', 'age', 'is_local','gender','razryad_fact', 'razryad_post', 'work_experience_company',
-                    'name_fact_lvl5','education','home_to_work_distance']]
+                     'work_experience_all', 'name_fact_lvl5','education','home_to_work_distance']]
     sot_data.gender = sot_data['gender'].map(lambda x: 1 if x == 'мужской' else 0)
+
+    sot_data = add_work_experience_features(sot_data)
 
     # Создание вспомогательно датасета с информацией о родственниках - пенсионерах
     # (55 лет для женщин и 60 лет для мужчин для региона севера)
