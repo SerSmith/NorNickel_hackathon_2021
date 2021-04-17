@@ -40,3 +40,28 @@ health = sot_ord \
     .to_numpy()
 
 sot_ord['health_streak'] = [item for sublist in health for item in sublist]
+
+## Добавлена колонка ялвяется ли последним днем месяца при больничном
+from calendar import monthrange
+
+def generate_period(ogrv):
+    
+    def is_last_day(date):
+        return monthrange(date.year, date.month)[1] == date.day
+
+    ogrv_b = ogrv \
+        .query("graphic_rule_level_2 == 'Б'") \
+        .sort_values(by=['hash_tab_num', 'date']) 
+    ogrv_b['date'] = pd.to_datetime(ogrv_b['date'])
+    ogrv_b['is_last_day'] = ogrv_b.date.apply(lambda x: is_last_day(x))
+    ogrv_b['date'] = ogrv_b.date.apply(lambda x: x.replace(day=1))
+    ogrv_b = ogrv_b \
+        .groupby(['hash_tab_num', 'date']) \
+        .agg(
+            is_last_day=('is_last_day', 'sum')
+        ) \
+        .reset_index()
+    ogrv_b['is_last_day'] = ogrv_b.is_last_day.astype('int')
+    return ogrv_b
+       
+#res = generate_period(ogrv)
