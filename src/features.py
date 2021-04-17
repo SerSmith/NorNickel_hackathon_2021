@@ -67,5 +67,9 @@ def generate_features(sot, rod, ogrv):
         targets_tmp.columns = [dt_col_name, 'hash_tab_num', y_col_name]
         merged_data = pd.merge(merged_data, targets_tmp, how = 'left', on = [dt_col_name, 'hash_tab_num'])
         merged_data.drop(dt_col_name, axis = 1, inplace = True)
-
-    return merged_data
+    y = merged_data[['date', 'hash_tab_num', 'y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
+                'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12']]
+    y_col_names= ['y_' + str(i)  for i in range(1,13)]
+    X = merged_data.drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
+                'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12'], axis = 1)
+    return X, y

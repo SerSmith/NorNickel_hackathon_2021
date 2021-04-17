@@ -10,15 +10,12 @@ class ModelSick:
         self.models = {}
         self.trasholds = {}
 
-    def fit(self, data):
+    def fit(self, data, target):
+        X = data.drop(['date', 'hash_tab_num'], axis = 1)
+        X.fillna(0, inplace=True)
         for i in range(1,13):
             y_col_name = 'y_' + str(i) 
-            X = data.dropna(subset=[y_col_name])\
-            .drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
-                'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12',
-                'date', 'hash_tab_num'], axis = 1)
-            X.fillna(0, inplace=True)
-            y = data.dropna(subset=[y_col_name])[y_col_name]
+            y = target[y_col_name]
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42, shuffle=True, stratify=y)
             self.models[i] = RandomForestClassifier()
             self.models[i].fit(X_train, y_train)
@@ -27,17 +24,13 @@ class ModelSick:
             f1_scores = f1_scores[p > 0]
             self.trasholds[i] = threshold[np.argmax(f1_scores)]
 
-    def predict(self, data_predict):
+    def predict(self, data):
         predictions = pd.DataFrame()
-        predictions['hash_tab_num'] = data_predict['hash_tab_num']
+        predictions[['hash_tab_num','date']] = data[['hash_tab_num','date']]
+        X_data_predict = data.drop(['date', 'hash_tab_num'], axis = 1)
+        X_data_predict.fillna(0, inplace=True)
         for i in range(1,13):
             y_col_name = 'y_' + str(i)
-            X_data_predict = data_predict\
-                    .drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
-                        'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12',
-                        'date', 'hash_tab_num'], axis = 1)
-
-            X_data_predict.fillna(0, inplace=True)
             predictions[y_col_name] = (self.models[i].predict_proba(X_data_predict)[:,1] >= self.trasholds[i]).astype(int)
 
         return predictions

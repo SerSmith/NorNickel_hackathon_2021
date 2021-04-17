@@ -2,26 +2,27 @@ from sklearn.model_selection import train_test_split
 
 
 class Validator:
-    def __init__(self, model, **kwargs):
-        self.model = model
-        for k in kwargs:
-            self.__setattr__(k, kwargs[k])
+    def __init__(self, args, kwargs):
+        self.model = model(*args, **kwargs)
 
+    def __train_test_split(self, data):
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(*data)
 
-    def train_test_split(self):
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y)
+    def __fit(self):
+        self.model.fit(X_train, y_train)
 
+    def __predict(self):
+        self.y_pred = self.model.predict(self.X_test, y_test)
 
-    def fit(self):
-        self.model.fit(self.X_train, self.y_train)
+    def __get_metrics(self):
+        self.result = "some metrics"
 
+    def run(self, data):
+        self.__train_test_split(data)
+        self.__fit()
+        self.__predict()
+        self.__get_metics()
 
-    def predict(self):
-        self.y_pred = self.model.predict(self.X_test, self.y_test)
-
-
-    def get_metrics(self):
-        pass
 
         
 
