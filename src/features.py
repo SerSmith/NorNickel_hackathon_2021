@@ -1,10 +1,34 @@
 import pandas as pd
 from transliterate import translit
+from calendar import monthrange
+
+
+def add_last_day(ogrv):
+    
+    def is_last_day(date):
+        return monthrange(date.year, date.month)[1] == date.day
+
+    ogrv_b = ogrv \
+        .query("graphic_rule_level_2 == 'Б'") \
+        .sort_values(by=['hash_tab_num', 'date']) 
+    ogrv_b['date'] = pd.to_datetime(ogrv_b['date'])
+    ogrv_b['is_last_day'] = ogrv_b.date.apply(lambda x: is_lasday(x))
+    ogrv_b['date'] = ogrv_b.date.apply(lambda x: x.replace(day=1))
+    ogrv_b = ogrv_b \
+        .groupby(['hash_tab_num', 'date']) \
+        .agg(
+            is_last_day=('is_last_day', 'sum')
+        ) \
+        .reset_index()
+    ogrv_b['is_last_day'] = ogrv_b.is_last_day.astype('int')
+    ogrv_b['date'] = ogrv_b.date.astype(str)
+    return ogrv_b
 
 
 def add_rolling_mean(data, column, period):
     data[f"{column}_rolling_mean_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "mean"}).reset_index(drop=True)
     return data
+
 
 def add_work_experience_features(data):
     
@@ -201,6 +225,7 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data = pd.merge(merged_data, result_cnt_category_days, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, df_name_post_lvl4_agg, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, df_name_fact_lvl4_agg, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, add_last_day(ogrv), how="left", on=['hash_tab_num','date'])
     merged_data = merged_data.drop_duplicates()
 
 
