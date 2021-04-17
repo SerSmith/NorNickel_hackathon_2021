@@ -1,13 +1,26 @@
 import pandas as pd
 from transliterate import translit
 
-
 def add_cummean(data, column):
     data = data.copy(deep=True)
     data[['cumsum', "cumcount", f"{column}_cummax"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').agg({column: ["cumsum", "cumcount", "cummax"]})
     data["cumcount"] = data["cumcount"] + 1
     data[f"{column}_cummean"] = data['cumsum'] / data["cumcount"]
     return data.drop(columns=['cumsum', "cumcount"])
+
+
+def health_streak(x):
+    x = x.values
+    zero_count = 0
+    res = []
+    for i in range(len(x)):
+        if (x[i] == 0):
+            res.append(zero_count)
+            zero_count += 1
+        else:
+            zero_count = 0
+            res.append(zero_count)
+    return res
 
 def generate_features(sot, rod, ogrv, weather):
 
@@ -16,6 +29,7 @@ def generate_features(sot, rod, ogrv, weather):
     kolvo_smen = ogrv[ogrv.work_shift_type.isin(['Смена 1', 'Смена 2', 'Смена 3'])]\
     [['hash_tab_num','month','work_shift_type']].groupby(['hash_tab_num','month']).agg('count').reset_index()
     kolvo_smen.columns = ['hash_tab_num', 'date', 'work_shift_type_count'] 
+    kolvo_smen = add_cummean(kolvo_smen, 'work_shift_type_count')
 
     # Создание вспомогательного датафрейма с информацией о сумме рабочих часов в месяце
     ogrv['number_of_working_hours'] = ogrv['number_of_working_hours'].astype('str')
@@ -23,6 +37,7 @@ def generate_features(sot, rod, ogrv, weather):
     sum_work_hours = ogrv[ogrv.work_shift_type.isin(['Смена 1', 'Смена 2', 'Смена 3'])]\
     [['hash_tab_num','month','number_of_working_hours']].groupby(['hash_tab_num','month']).agg('sum').reset_index()
     sum_work_hours.columns = ['hash_tab_num', 'date', 'sum_work_hours']
+    sum_work_hours = add_cummean(sum_work_hours, 'sum_work_hours')
 
 
     # Создание вспомогательного датафрейма с информацией о факте больничного в текущем месяце
@@ -30,17 +45,20 @@ def generate_features(sot, rod, ogrv, weather):
     [['hash_tab_num','month','graphic_rule_level_1']].groupby(['hash_tab_num','month']).agg('count').reset_index()
     kolvo_bolni4['graphic_rule_level_1'] = 1
     kolvo_bolni4.columns = ['hash_tab_num', 'date', 'sick']
+    kolvo_bolni4 = add_cummean(kolvo_bolni4, 'sick' )
 
     
     # Количество дней в месяце в категориях Больничные, Выходной, Прогулы и т.д.
     ogrv = pd.get_dummies(ogrv, columns = ['graphic_rule_level_1'])
     ogrv.columns  = [translit(column,'ru', reversed=True).replace("'","") for column in ogrv.columns]
     list_column_type_of_day = [column for column in ogrv.columns if 'graphic_rule_level_1' in column]
-    result_cnt_category_days = ogrv[['hash_tab_num','month']].rename({'month': 'date'}, axis=1)
+    result_cnt_category_days = ogrv[['hash_tab_num','month']].rename({'month': 'date'}, axis=1).drop_duplicates()
     for column in list_column_type_of_day:
         cnt_category_days= ogrv[['hash_tab_num','month', column]].groupby(['hash_tab_num','month']).agg('sum').reset_index()
-        cnt_category_days.columns = ['hash_tab_num', 'date', 'cnt_days_'+column]
+        cnt_category_days.columns = ['hash_tab_num', 'date', 'cnt_days_' + column]
+        cnt_category_days = add_cummean(cnt_category_days, 'cnt_days_' + column)
         result_cnt_category_days = pd.merge(result_cnt_category_days, cnt_category_days, how = 'left', on = ['hash_tab_num','date'])
+
 
     #    name_post_lvl4_people_count - количество людей в отделе
     #    name_post_lvl4_sick_count - количесвто заболевших людей в отеделе
@@ -74,9 +92,31 @@ def generate_features(sot, rod, ogrv, weather):
                     on=['date', 'name_fact_lvl4'],
                     how='left'
                 )[['hash_tab_num', 'date','name_fact_lvl4_people_count','name_fact_lvl4_sick_count','name_fact_lvl4_sick_avg']]
+    
+    for column in ['name_post_lvl4_people_count','name_post_lvl4_sick_count','name_post_lvl4_sick_avg']:
+        df_name_post_lvl4_agg = add_cummean(df_name_post_lvl4_agg, column)
+    for column in ['name_fact_lvl4_people_count','name_fact_lvl4_sick_count','name_fact_lvl4_sick_avg']:
+        df_name_fact_lvl4_agg = add_cummean(df_name_fact_lvl4_agg, column)
+
 
     # Возраст
     sot['age'] = ([int(x[0:4]) for x in sot['date']] - sot['date_of_birth'])
+
+
+    # Добавление колонки health_streak 
+    # Сколько месяцев подряд не болел сотрудник
+    sot = sot.sort_values(by=['hash_tab_num', 'date'])
+
+    health = sot \
+        .groupby('hash_tab_num') \
+        .agg(
+            health_streak=("sick", lambda x: health_streak(x))
+        ) \
+        .health_streak \
+        .to_numpy()
+
+    sot['health_streak'] = [item for sublist in health for item in sublist]
+    sot = add_cummean(sot,'health_streak' )
 
     # Базовый датафремй
     sot_data = sot[['hash_tab_num','date','category', 'age', 'is_local','gender','razryad_fact', 'razryad_post', 'work_experience_company',
@@ -110,9 +150,10 @@ def generate_features(sot, rod, ogrv, weather):
     # Создание вспомогательно датасета с информацией о количестве сотрудников в подразделении
     # по фактическому месту работы
     division_count = sot_data[['hash_tab_num','date','name_fact_lvl5']].\
-    groupby(['name_fact_lvl5','date']).agg('count').reset_index()
+        groupby(['name_fact_lvl5','date']).agg('count').reset_index()
     division_count.columns = ['name_fact_lvl5', 'date', 'personel_num']
     sot_data = pd.merge(sot_data, division_count, how = 'left', on = ['date','name_fact_lvl5'])
+    #sot_data = add_cummean(sot_data,'personel_num' )   
 
     # Создание dummy переменных
     sot_data.education = sot_data['education']\
@@ -147,7 +188,6 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data.drop(['target_dates'],axis = 1, inplace = True)
     merged_data['date'] = pd.to_datetime(merged_data['date'])
 
-
     # Добавим информацию о погоде
     merged_data["month"] = merged_data["date"].dt.month
     merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц").drop(columns=["Месяц"])
@@ -163,14 +203,11 @@ def generate_features(sot, rod, ogrv, weather):
         merged_data.drop(dt_col_name, axis = 1, inplace = True)
 
 
-    
     y = merged_data[['date', 'hash_tab_num', 'y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                 'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12']]
     y_col_names= ['y_' + str(i)  for i in range(1,13)]
     X = merged_data.drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                 'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12'], axis = 1)
     
-
-
 
     return X, y
