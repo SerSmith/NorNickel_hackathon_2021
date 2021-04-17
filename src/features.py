@@ -6,6 +6,14 @@ def add_rolling_mean(data, column, period):
     data[f"{column}_rolling_mean_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "mean"}).reset_index(drop=True)
     return data
 
+def add_work_experience_features(data):
+    
+    data['work_experience_all_stage_0'] = data['work_experience_all'] <= 0.5
+    data['work_experience_all_stage_1'] = (data['work_experience_all'] > 0.5) & (data['work_experience_all'] <= 5)
+    data['work_experience_all_stage_2'] = (data['work_experience_all'] > 5) & (data['work_experience_all'] <= 8)
+    data['work_experience_all_stage_3'] = data['work_experience_all'] > 8
+
+    return data
 
 def add_cummean(data, column):
     data = data.copy(deep=True)
