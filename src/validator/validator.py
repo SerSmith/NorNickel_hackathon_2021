@@ -1,21 +1,12 @@
-from pprint import pprint
-
 import pandas as pd 
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
 
 
 class Validator:
-    def __init__(self, model, *args, **kwargs):
+    def __init__(self, model, points,  *args, **kwargs):
         self.model = model(args, kwargs)
-        self.points = [
-            pd.Timestamp(2018, 8, 1),
-            pd.Timestamp(2018, 7, 1),
-            pd.Timestamp(2017, 9, 1),
-            pd.Timestamp(2017, 3, 1),
-            pd.Timestamp(2016, 9, 1),
-        ]
+        self.points = points
         self.prediction = []
         self.f1_scores = []
 
