@@ -252,7 +252,11 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")])
     merged_data.drop(columns=["month"], inplace=True)
 
-    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц").drop(columns=["Месяц"])
+    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц")
+    
+    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")])
+    merged_data.drop(columns=["month"], inplace=True)
+    
     merged_data.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in merged_data.columns]
 
     # Присоединение данных о больничных к будущим периодам созданным на предыдущем шаге
