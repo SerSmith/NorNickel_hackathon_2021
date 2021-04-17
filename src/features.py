@@ -1,6 +1,14 @@
 import pandas as pd
 from transliterate import translit
 
+
+def add_cummean(data, column):
+    data = data.copy(deep=True)
+    data[['cumsum', "cumcount"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').agg({column: ["cumsum", "cumcount"]})
+    data["cumcount"] = data["cumcount"] + 1
+    data[f"{column}_cummean"] = data['cumsum'] / data["cumcount"]
+    return data
+
 def generate_features(sot, rod, ogrv, weather):
 
     # Создание вспомогательного датафрейма с информацией о количестве смен сотрудника в месяце
@@ -162,6 +170,7 @@ def generate_features(sot, rod, ogrv, weather):
     X = merged_data.drop(['y_1', 'y_2', 'y_3', 'y_4', 'y_5', 'y_6', 
                 'y_7', 'y_8', 'y_9', 'y_10', 'y_11', 'y_12'], axis = 1)
     
+
 
 
     return X, y
