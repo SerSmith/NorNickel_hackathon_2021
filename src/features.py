@@ -2,11 +2,27 @@ import pandas as pd
 from transliterate import translit
 
 
+def add_rolling_mean(data, column, period):
+    data[f"{column}_rolling_mean_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "mean"}).reset_index(drop=True)
+    return data
+
+
 def add_cummean(data, column):
     data = data.copy(deep=True)
     data[['cumsum', "cumcount", f"{column}_cummax"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').agg({column: ["cumsum", "cumcount", "cummax"]})
     data["cumcount"] = data["cumcount"] + 1
     data[f"{column}_cummean"] = data['cumsum'] / data["cumcount"]
+
+    data = add_rolling_mean(data, column, 2)
+    data = add_rolling_mean(data, column, 3)
+    data = add_rolling_mean(data, column, 6)
+    data = add_rolling_mean(data, column, 9)
+    data = add_rolling_mean(data, column, 12)
+    data = add_rolling_mean(data, column, 24)
+
+    data[f"trend_{column}_2_24"] = data[f"{column}_rolling_mean_2"] / data[f"{column}_rolling_mean_24"]
+    data[f"trend_{column}_2_12"] = data[f"{column}_rolling_mean_2"] / data[f"{column}_rolling_mean_12"]
+
     return data.drop(columns=['cumsum', "cumcount"])
 
 def generate_features(sot, rod, ogrv, weather):
