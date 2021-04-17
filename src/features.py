@@ -4,10 +4,10 @@ from transliterate import translit
 
 def add_cummean(data, column):
     data = data.copy(deep=True)
-    data[['cumsum', "cumcount"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').agg({column: ["cumsum", "cumcount"]})
+    data[['cumsum', "cumcount", f"{column}_cummax"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').agg({column: ["cumsum", "cumcount", "cummax"]})
     data["cumcount"] = data["cumcount"] + 1
     data[f"{column}_cummean"] = data['cumsum'] / data["cumcount"]
-    return data
+    return data.drop(columns=['cumsum', "cumcount"])
 
 def generate_features(sot, rod, ogrv, weather):
 
