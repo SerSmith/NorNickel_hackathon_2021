@@ -233,8 +233,6 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data = pd.merge(merged_data, df_name_fact_lvl4_agg, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, add_last_day(ogrv), how="left", on=['hash_tab_num','date'])
     # dummy month
-    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")])
-    merged_data.drop(columns=["month"], inplace=True)
     merged_data = merged_data.drop_duplicates()
 
 
@@ -251,6 +249,9 @@ def generate_features(sot, rod, ogrv, weather):
 
     # Добавим информацию о погоде
     merged_data["month"] = merged_data["date"].dt.month
+    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")])
+    merged_data.drop(columns=["month"], inplace=True)
+
     merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц").drop(columns=["Месяц"])
     merged_data.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in merged_data.columns]
 
