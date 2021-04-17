@@ -26,8 +26,7 @@ def add_last_day(ogrv):
 
 
 def add_rolling_features(data, column, period):
-    data[f"{column}_rolling_mean_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "mean"}).reset_index(drop=True)
-    data[f"{column}_rolling_std_{period}"] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: "std"}).reset_index(drop=True)
+    data[[f"{column}_rolling_mean_{period}", f"{column}_rolling_std_{period}", f"{column}_rolling_max_{period}"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: ["mean", "std", "max"]}).reset_index(drop=True)
     return data
 
 
@@ -247,18 +246,18 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data.drop(['target_dates'],axis = 1, inplace = True)
     merged_data['date'] = pd.to_datetime(merged_data['date'])
 
+    merged_data = merged_data.drop_duplicates()
     # Добавим информацию о погоде
     merged_data["month"] = merged_data["date"].dt.month
-    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")])
-    merged_data.drop(columns=["month"], inplace=True)
 
+    print("1", merged_data.shape)
     merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц")
-    
-    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")])
+    print(merged_data.shape)
+    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")], axis=1)
     merged_data.drop(columns=["month"], inplace=True)
-    
+    print("2", merged_data.shape)  
     merged_data.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in merged_data.columns]
-
+    print("3", merged_data.shape)
     # Присоединение данных о больничных к будущим периодам созданным на предыдущем шаге
     for i in range(1,13):
         dt_col_name = 'y_dt_'+str(i)
