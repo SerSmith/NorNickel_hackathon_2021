@@ -1,4 +1,5 @@
 import pandas as pd
+from transliterate import translit
 
 def generate_features(sot, rod, ogrv):
 
@@ -8,11 +9,31 @@ def generate_features(sot, rod, ogrv):
     [['hash_tab_num','month','work_shift_type']].groupby(['hash_tab_num','month']).agg('count').reset_index()
     kolvo_smen.columns = ['hash_tab_num', 'date', 'work_shift_type_count'] 
 
+    # Создание вспомогательного датафрейма с информацией о сумме рабочих часов в месяце
+    ogrv['number_of_working_hours'] = ogrv['number_of_working_hours'].astype('str')
+    ogrv['number_of_working_hours'] = ogrv['number_of_working_hours'].apply(lambda x: float(x.replace(',','.')))
+    sum_work_hours = ogrv[ogrv.work_shift_type.isin(['Смена 1', 'Смена 2', 'Смена 3'])]\
+    [['hash_tab_num','month','number_of_working_hours']].groupby(['hash_tab_num','month']).agg('sum').reset_index()
+    sum_work_hours.columns = ['hash_tab_num', 'date', 'sum_work_hours']
+
+
     # Создание вспомогательного датафрейма с информацией о факте больничного в текущем месяце
     kolvo_bolni4 = ogrv[ogrv.graphic_rule_level_1.isin(['Больничный'])]\
     [['hash_tab_num','month','graphic_rule_level_1']].groupby(['hash_tab_num','month']).agg('count').reset_index()
     kolvo_bolni4['graphic_rule_level_1'] = 1
     kolvo_bolni4.columns = ['hash_tab_num', 'date', 'sick']
+
+    
+    # Количество дней в месяце в категориях Больничные, Выходной, Прогулы и т.д.
+    ogrv = pd.get_dummies(ogrv, columns = ['graphic_rule_level_1'])
+    ogrv.columns  = [translit(column,'ru', reversed=True).replace("'","") for column in ogrv.columns]
+    list_column_type_of_day = [column for column in ogrv.columns if 'graphic_rule_level_1' in column]
+    result_cnt_category_days = ogrv[['hash_tab_num','month']].rename({'month': 'date'}, axis=1)
+    for column in list_column_type_of_day:
+        cnt_category_days= ogrv[['hash_tab_num','month', column]].groupby(['hash_tab_num','month']).agg('sum').reset_index()
+        cnt_category_days.columns = ['hash_tab_num', 'date', 'cnt_days_'+column]
+        result_cnt_category_days = pd.merge(result_cnt_category_days, cnt_category_days, how = 'left', on = ['hash_tab_num','date'])
+
 
     # Базовый датафремй
     sot_data = sot[['hash_tab_num','date','category','gender','razryad_fact','work_experience_company',
@@ -29,7 +50,20 @@ def generate_features(sot, rod, ogrv):
     retiree = sot_data[((sot_data.rel_cur_old > 55) & (sot_data.rel_is_male == 0) \
                 | (sot_data.rel_cur_old > 60) & (sot_data.rel_is_male == 1))]\
         [['hash_tab_num','date','rel_is_male']].groupby(['hash_tab_num','date']).agg('count').reset_index()
-    sot_data.drop(['rel_type','rel_birth','rel_cur_old','rel_is_male'], axis = 1, inplace = True)
+    retiree.columns = ['hash_tab_num','date','rale_is_old']
+
+    # Добавим фичи о количестве малолетних детей
+    sot_data['rel_is_children'] = sot_data.rel_type.map(lambda x:1 if x \
+        in ['Сын', 'Дочь', 'Пасынок', 'Падчерица', 'Опекаемый (воспитанник)','Опекаемая (воспитанница)'] else 0)
+    young_children_6_cnt = sot_data[(sot_data.rel_is_children==1)&(sot_data.rel_cur_old<=6)][['hash_tab_num','date','rel_is_children']].groupby(['hash_tab_num','date']).agg('count').reset_index()
+    young_children_6_cnt.columns = ['hash_tab_num','date','young_children_6_cnt']
+    young_children_11_cnt = sot_data[(sot_data.rel_is_children==1)&(sot_data.rel_cur_old<=12)][['hash_tab_num','date','rel_is_children']].groupby(['hash_tab_num','date']).agg('count').reset_index()
+    young_children_11_cnt.columns = ['hash_tab_num','date','young_children_11_cnt']
+    young_children_6_female_cnt = sot_data[(sot_data.rel_is_children==1)&(sot_data.rel_cur_old<=6)&(sot_data.gender==0)][['hash_tab_num','date','rel_is_children']].groupby(['hash_tab_num','date']).agg('count').reset_index()
+    young_children_6_female_cnt.columns = ['hash_tab_num','date','young_children_6_female_cnt']
+    young_children_11_female_cnt = sot_data[(sot_data.rel_is_children==1)&(sot_data.rel_cur_old<=12)&(sot_data.gender==0)][['hash_tab_num','date','rel_is_children']].groupby(['hash_tab_num','date']).agg('count').reset_index()
+    young_children_11_female_cnt.columns = ['hash_tab_num','date','young_children_11_female_cnt']
+    sot_data.drop(['rel_type','rel_birth','rel_cur_old','rel_is_male','rel_is_children'], axis = 1, inplace = True)
     # Создание вспомогательно датасета с информацией о количестве сотрудников в подразделении
     # по фактическому месту работы
     division_count = sot_data[['hash_tab_num','date','name_fact_lvl5']].\
@@ -46,8 +80,14 @@ def generate_features(sot, rod, ogrv):
 
     # Создание единого датасета для будущего использования в модели
     merged_data = pd.merge(sot_data, retiree, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, young_children_6_cnt, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, young_children_11_cnt, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, young_children_6_female_cnt, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, young_children_11_female_cnt, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, kolvo_smen, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, sum_work_hours, how = 'left', on = ['hash_tab_num','date'])
     merged_data = pd.merge(merged_data, kolvo_bolni4, how = 'left', on = ['hash_tab_num','date'])
+    merged_data = pd.merge(merged_data, result_cnt_category_days, how = 'left', on = ['hash_tab_num','date'])
     merged_data = merged_data.drop_duplicates()
 
     # Создание 12ти столбцов с датами будущих периодов для формирования таргетов
