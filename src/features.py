@@ -177,11 +177,13 @@ def generate_features(sot, rod, ogrv, weather):
         .to_numpy()
 
     sot['health_streak'] = [item for sublist in health for item in sublist]
-    sot = add_cummean(sot, 'health_streak' )
+    # sot = add_cummean(sot, 'health_streak' )
 
     # Базовый датафремй
     sot_data = sot[['hash_tab_num','date','category', 'age', 'is_local','gender','razryad_fact', 'razryad_post', 'work_experience_company',
-                     'work_experience_all', 'name_fact_lvl5','education','home_to_work_distance']]
+                     'work_experience_all', 'name_fact_lvl5','education','home_to_work_distance', 'work_experience_factory']]
+    
+
     sot_data.gender = sot_data['gender'].map(lambda x: 1 if x == 'мужской' else 0)
 
     sot_data = add_work_experience_features(sot_data)
@@ -245,6 +247,8 @@ def generate_features(sot, rod, ogrv, weather):
 
     # Создание 12ти столбцов с датами будущих периодов для формирования таргетов
     merged_data['sick'] = merged_data['sick'].fillna(0)
+    merged_data = add_cummean(merged_data, 'sick')
+
     merged_data['target_dates'] = merged_data['date'].apply(lambda x: pd.date_range((x),\
         periods = 13, freq='1MS',closed = 'right'))
     new_target_dates = pd.DataFrame(merged_data['target_dates'].tolist(), \
@@ -258,10 +262,15 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data["month"] = merged_data["date"].dt.month
 
     print("1", merged_data.shape)
-    # merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц")
+    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц")
     print(merged_data.shape)
     merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")], axis=1)
     merged_data.drop(columns=["month"], inplace=True)
+
+    merged_data["year"] = merged_data["date"].dt.year
+    merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.year, prefix="year")], axis=1)
+    merged_data.drop(columns=["year"], inplace=True)
+
     print("2", merged_data.shape)  
     merged_data.columns  = [translit(column,'ru', reversed=True).replace("'","").replace(" ",'_') for column in merged_data.columns]
     print("3", merged_data.shape)
