@@ -45,6 +45,7 @@ def add_cummean(data, column):
     data["cumcount"] = data["cumcount"] + 1
     data[f"{column}_cummean"] = data['cumsum'] / data["cumcount"]
 
+    data = add_rolling_features(data, column, 1)
     data = add_rolling_features(data, column, 2)
     data = add_rolling_features(data, column, 3)
     data = add_rolling_features(data, column, 6)
@@ -59,6 +60,12 @@ def add_cummean(data, column):
     data[f"trend_std_{column}_2_24"] = data[f"{column}_rolling_std_2"] / data[f"{column}_rolling_std_24"]
     data[f"trend_std_{column}_2_12"] = data[f"{column}_rolling_std_2"] / data[f"{column}_rolling_std_12"]
     data[f"trend_std_{column}_2_6"] = data[f"{column}_rolling_std_2"] / data[f"{column}_rolling_std_6"]
+
+    data[f"trend_{column}_1_24"] = data[f"{column}_rolling_mean_1"] / data[f"{column}_rolling_mean_24"]
+    data[f"trend_{column}_1_12"] = data[f"{column}_rolling_mean_1"] / data[f"{column}_rolling_mean_12"]
+    data[f"trend_{column}_1_6"] = data[f"{column}_rolling_mean_1"] / data[f"{column}_rolling_mean_6"]
+    data[f"trend_{column}_1_3"] = data[f"{column}_rolling_mean_1"] / data[f"{column}_rolling_mean_3"]
+
 
     return data.drop(columns=['cumsum', "cumcount"])
 
@@ -170,7 +177,7 @@ def generate_features(sot, rod, ogrv, weather):
         .to_numpy()
 
     sot['health_streak'] = [item for sublist in health for item in sublist]
-    sot = add_cummean(sot,'health_streak' )
+    sot = add_cummean(sot, 'health_streak' )
 
     # Базовый датафремй
     sot_data = sot[['hash_tab_num','date','category', 'age', 'is_local','gender','razryad_fact', 'razryad_post', 'work_experience_company',
@@ -251,7 +258,7 @@ def generate_features(sot, rod, ogrv, weather):
     merged_data["month"] = merged_data["date"].dt.month
 
     print("1", merged_data.shape)
-    merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц")
+    # merged_data = merged_data.merge(weather, left_on='month', right_on="Месяц")
     print(merged_data.shape)
     merged_data = pd.concat([merged_data, pd.get_dummies(merged_data.month, prefix="month")], axis=1)
     merged_data.drop(columns=["month"], inplace=True)
