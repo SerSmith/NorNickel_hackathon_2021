@@ -26,7 +26,7 @@ def add_last_day(ogrv):
 
 
 def add_rolling_features(data, column, period):
-    data[[f"{column}_rolling_mean_{period}", f"{column}_rolling_std_{period}", f"{column}_rolling_max_{period}"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: ["mean", "std", "max"]}).reset_index(drop=True)
+    data[[f"{column}_rolling_mean_{period}", f"{column}_rolling_std_{period}", f"{column}_rolling_max_{period}", f"{column}_rolling_min_{period}"]] = data.sort_values(["hash_tab_num", "date"]).groupby('hash_tab_num').rolling(period, min_periods=0).agg({column: ["mean", "std", "max", "min"]}).reset_index(drop=True)
     return data
 
 
